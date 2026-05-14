@@ -1,0 +1,3 @@
+"0","library(tidyverse)   # dplyr, ggplot2, readr, lubridate..."
+"0","library(lubridate)   # manejo de fechas"
+"0","library(scales)      # formato de ejes en ggplot2"

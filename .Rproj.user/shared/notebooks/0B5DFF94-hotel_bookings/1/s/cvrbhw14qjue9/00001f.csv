@@ -1,0 +1,6 @@
+"0","# require(tidyverse)"
+"0","# countries with at least 100 bookings"
+"0","xx = x %>% group_by(country) %>% mutate(pais=n()) %>% filter(pais>=100)"
+"2","Error en x %>% group_by(country) %>% mutate(pais = n()) %>% filter(pais >= : 
+  no se pudo encontrar la función ""%>%""
+"

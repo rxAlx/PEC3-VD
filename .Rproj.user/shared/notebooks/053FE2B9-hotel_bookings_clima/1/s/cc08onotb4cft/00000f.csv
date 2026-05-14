@@ -1,0 +1,33 @@
+"0","# Columnas nuevas añadidas"
+"0","cat(""Columnas nuevas incorporadas al dataset:\n"")"
+"1","Columnas nuevas incorporadas al dataset:
+"
+"0","nuevas_cols <- c(""dia"", ""mes_num"", ""tipo"", ""ciudad_clima"","
+"0","                 ""temp_media"", ""temp_max_med"", ""prec_total"")"
+"0","cat(paste("" -"", nuevas_cols, collapse = ""\n""), ""\n\n"")"
+"1"," - dia
+ - mes_num
+ - tipo
+ - ciudad_clima
+ - temp_media
+ - temp_max_med
+ - prec_total"
+"1"," "
+"1","
+
+"
+"0","# Resumen de las variables climáticas"
+"0","x_enriquecido %>%"
+"0","  group_by(hotel) %>%"
+"0","  summarise("
+"0","    temp_min  = min(temp_media, na.rm = TRUE),"
+"0","    temp_max  = max(temp_media, na.rm = TRUE),"
+"0","    temp_prom = mean(temp_media, na.rm = TRUE),"
+"0","    prec_min  = min(prec_total, na.rm = TRUE),"
+"0","    prec_max  = max(prec_total, na.rm = TRUE),"
+"0","    .groups   = ""drop"""
+"0","  ) %>%"
+"0","  knitr::kable(digits = 1,"
+"0","               col.names = c(""Hotel"", ""T. mín (°C)"", ""T. máx (°C)"","
+"0","                             ""T. prom (°C)"", ""Prec. mín (mm)"", ""Prec. máx (mm)""),"
+"0","               caption = ""Rango de variables climáticas por hotel (período 2015-2017)"")"

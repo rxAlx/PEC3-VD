@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dos hoteles, dos Portugales</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="progress-bar"><div id="progress-fill"></div></div>
+
+  <nav class="chapter-nav">
+    <span class="dot active" title="Introducción"></span>
+    <span class="dot" title="Viz 1 · Origen"></span>
+    <span class="dot" title="Viz 2 · Estacionalidad"></span>
+    <span class="dot" title="Viz 3 · Tipo de viaje"></span>
+    <span class="dot" title="Viz 4 · Precio y cancelaciones"></span>
+    <span class="dot" title="Conclusión"></span>
+  </nav>
+
+  <header class="hero">
+    <div class="hero__inner">
+      <p class="eyebrow">PEC 3 · Visualización de datos · UOC · Máster en Ciencia de Datos</p>
+      <h1>Dos hoteles,<br>dos Portugales</h1>
+      <p class="hero__lead">
+        119.390 reservas. Dos ciudades. Y una sorpresa:
+        el verano no es lo que parece en Portugal.
+      </p>
+      <div class="hero__method">
+        <strong>Autor:</strong> Alex Chaume García &nbsp;·&nbsp;
+        <strong>Datasets:</strong>
+        Hotel Booking Demand (António et al., 2019) ·
+        <a href="https://www.ipma.pt/pt/oclima/series.longas/" target="_blank" rel="noopener">IPMA</a>
+        (Lisboa-Geofísico y Faro-Aeropuerto, 2015–2017)<br>
+        <strong>Herramientas:</strong> R · ggplot2 · HTML / CSS / JavaScript · Scrollama
+      </div>
+      <div class="hero__meta">
+        <span>↓ Scroll para avanzar</span>
+        <span>Data Storytelling</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="story">
+
+    <section class="story__stage">
+      <div class="stage__sticky">
+
+        <div class="stage__panel">
+          <div class="stage__kicker" id="scene-kicker">Introducción · El dataset</div>
+          <h2 id="scene-title">Dos hoteles en Portugal, 119.390 reservas</h2>
+          <p id="scene-copy">
+            Entre julio de 2015 y agosto de 2017, dos hoteles reales registraron
+            cada movimiento de sus huéspedes. H2, un hotel urbano en Lisboa con 79.330
+            reservas. H1, un resort en el Algarve con 40.060.
+            El 37% de todas las reservas acabó cancelado. ¿Por qué?
+          </p>
+          <p class="stage__note" id="scene-note">
+            Fuente: Hotel Booking Demand Dataset · António et al., 2019
+          </p>
+        </div>
+
+        <div class="stage__visual">
+          <img id="scene-image"
+               src="assets/intro-stats.svg"
+               alt="Panel de cifras clave: dos hoteles en Portugal, 2015-2017">
+        </div>
+
+      </div>
+    </section>
+
+    <section class="story__steps">
+
+      <!-- 0 — INTRO (sin figura, el panel sticky muestra el SVG) -->
+      <article class="step" data-scene="0">
+        <p class="step__eyebrow">Introducción · El dataset</p>
+        <h3>Dos hoteles en Portugal, 119.390 reservas</h3>
+        <p>
+          El dataset cubre reservas entre julio de 2015 y agosto de 2017.
+          <strong>H1</strong> es un resort en el Algarve (40.060 reservas).
+          <strong>H2</strong> es un hotel urbano en Lisboa (79.330 reservas).
+          El <strong>37%</strong> de todas las reservas fue cancelado.
+          Esa cifra será la clave de toda la historia.
+        </p>
+        <div class="intro-photos">
+          <figure class="intro-photo">
+            <img src="assets/algarve.jpeg" alt="Playa del Algarve" loading="lazy">
+            <figcaption>Algarve</figcaption>
+          </figure>
+          <figure class="intro-photo">
+            <img src="assets/lisboa.jpeg" alt="Vista de Lisboa" loading="lazy">
+            <figcaption>Lisboa</figcaption>
+          </figure>
+        </div>
+      </article>
+
+      <!-- 1 — VIZ 1: Origen de turistas -->
+      <article class="step" data-scene="1">
+        <p class="step__eyebrow">Visualización 1 · Los protagonistas</p>
+        <h3>¿De dónde vienen y qué Portugal eligen?</h3>
+        <p>
+          Portugal (PRT) y el Reino Unido (GBR) dominan el Algarve.
+          Francia (FRA) y Alemania (DEU) eligen Lisboa.
+          España (ESP) se reparte entre los dos.
+          El origen del turista ya predice el destino.
+        </p>
+        <figure class="step__figure">
+          <img src="graficos/origen_turistas.png"
+               alt="Top 15 países de origen: % de reservas por tipo de hotel" loading="lazy">
+        </figure>
+      </article>
+
+      <!-- 2 — VIZ 2: Estacionalidad normalizada + temperatura (CLÍMAX) -->
+      <article class="step" data-scene="2">
+        <p class="step__eyebrow">Visualización 2 · Clímax · El gran giro</p>
+        <h3>El Algarve y Lisboa no son destinos de verano</h3>
+        <p>
+          Al filtrar solo las reservas confirmadas, el patrón se invierte.
+          El Algarve tiene su pico en <strong>octubre (+15%)</strong>
+          y un valle en julio (−6%).
+          Lisboa alcanza su máximo en <strong>mayo (+30%)</strong>.
+          Julio — el mes más turístico en apariencia — es el más vacío para ambos.
+        </p>
+        <figure class="step__figure">
+          <img src="graficos/temp_vs_reservas_desviacion_anual.png"
+               alt="Desviación estacional de reservas confirmadas respecto a la media anual y temperatura" loading="lazy">
+        </figure>
+      </article>
+
+      <!-- 3 — VIZ 3: Tipo de visita por mes -->
+      <article class="step" data-scene="3">
+        <p class="step__eyebrow">Visualización 3 · Acción descendente</p>
+        <h3>El perfil del viajero cambia radicalmente con las estaciones</h3>
+        <p>
+          En verano dominan las vacaciones puras y los paquetes — que se cancelan más.
+          En otoño e invierno, el viajero de trabajo toma el relevo,
+          especialmente en Lisboa.
+          Cada mes tiene su viajero. Cada viajero, su Portugal.
+        </p>
+        <figure class="step__figure">
+          <img src="graficos/tipo_viaje_por_mes.png"
+               alt="Composición del tipo de visita por mes y hotel" loading="lazy">
+        </figure>
+      </article>
+
+      <!-- 4 — VIZ 4: Precio ADR + tasa de cancelación -->
+      <article class="step" data-scene="4">
+        <p class="step__eyebrow">Visualización 4 · Precio y cancelaciones</p>
+        <h3>El verano encarece el Algarve... y lo llena de dudas</h3>
+        <p>
+          El precio del Algarve pasa de <strong>60€</strong> en enero
+          a <strong>146€</strong> en agosto — un incremento del 144%.
+          Pero la tasa de cancelación también crece con el calor.
+          Lisboa mantiene precios más estables pero una cancelación
+          estructuralmente más alta durante todo el año.
+        </p>
+        <figure class="step__figure">
+          <img src="graficos/precio_reservas_por_mes_vs_cancelaciones.png"
+               alt="Distribución del precio por noche (boxplot) y tasa de cancelación por mes" loading="lazy">
+        </figure>
+      </article>
+
+      <!-- 5 — CONCLUSIÓN -->
+      <article class="step" data-scene="5">
+        <p class="step__eyebrow">Conclusión · Una lección</p>
+        <h3>Dos hoteles, dos Portugales, una lección</h3>
+        <p>
+          El Algarve cobra más en verano pero pierde más reservas.
+          El turista inteligente elige <strong>octubre</strong>:
+          sol sin masificación, 22°C y precios en caída.
+          Lisboa es un destino de negocios disfrazado de turismo urbano.
+          Los datos siempre cuentan una historia más honesta que la intuición.
+        </p>
+        <figure class="step__figure">
+          <img src="graficos/reservas_totales_vs_canceladas.png"
+               alt="Comparación de reservas totales frente a canceladas por mes" loading="lazy">
+        </figure>
+      </article>
+
+    </section>
+  </main>
+
+  <footer class="footer">
+    PEC 3 · Visualización de Datos · Máster Universitario en Ciencia de Datos · UOC
+  </footer>
+
+  <script src="https://unpkg.com/scrollama"></script>
+  <script src="script.js"></script>
+</body>
+</html>

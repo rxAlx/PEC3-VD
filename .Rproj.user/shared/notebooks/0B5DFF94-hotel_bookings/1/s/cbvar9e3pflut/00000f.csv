@@ -1,0 +1,5 @@
+"0","x[is.na(x$children),'children']=0"
+"0","x=x[x$adr>0 & "
+"0","    (x$stays_in_week_nights+x$stays_in_weekend_nights)>0 & "
+"0","    (x$adults+x$children+x$babies)>0 & "
+"0","    !is.na(x$children),]"

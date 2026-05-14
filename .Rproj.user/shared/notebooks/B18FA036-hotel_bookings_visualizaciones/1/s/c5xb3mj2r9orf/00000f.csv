@@ -1,0 +1,86 @@
+"0","cat(""=== CIFRAS CLAVE PARA EL STORYTELLING ===\n\n"")"
+"1","=== CIFRAS CLAVE PARA EL STORYTELLING ===
+
+"
+"0","# Viz 1: país más orientado a cada hotel"
+"0","x %>%"
+"0","  filter(!is.na(country) & country != ""NULL"") %>%"
+"0","  count(country, hotel) %>%"
+"0","  group_by(country) %>%"
+"0","  mutate(pct = n / sum(n) * 100) %>%"
+"0","  filter(hotel == ""Resort Hotel"") %>%"
+"0","  arrange(desc(pct)) %>%"
+"0","  head(3) %>%"
+"0","  { cat(""Top 3 países más orientados al Algarve:\n""); print(.) }"
+"1","Top 3 países más orientados al Algarve:
+"
+"1","[38;5;246m# A tibble: 3 × 4[39m
+"
+"1","[38;5;246m# Groups:   country [3][39m
+"
+"1","  country hotel            n   pct
+"
+"1","  [3m[38;5;246m<fct>[39m[23m   [3m[38;5;246m<fct>[39m[23m        [3m[38;5;246m<int>[39m[23m [3m[38;5;246m<dbl>[39m[23m
+"
+"1","[38;5;250m1[39m BDI     Resort Hotel     1   100
+"
+"1","[38;5;250m2[39m BHS     Resort Hotel     1   100
+"
+"1","[38;5;250m3[39m BWA     Resort Hotel     1   100
+"
+"0","cat(""\n"")"
+"1","
+"
+"0","# Viz 2: diferencia estacional"
+"0","x %>%"
+"0","  mutate(mes_num = as.integer(arrival_date_month)) %>%"
+"0","  group_by(hotel, temporada = ifelse(mes_num %in% 6:9, ""Verano"", ""Resto"")) %>%"
+"0","  summarise(reservas = n(), .groups = ""drop"") %>%"
+"0","  group_by(hotel) %>%"
+"0","  mutate(pct = reservas / sum(reservas) * 100) %>%"
+"0","  { cat(""% reservas en verano (jun-sep) vs resto:\n""); print(.) }"
+"1","% reservas en verano (jun-sep) vs resto:
+"
+"1","[38;5;246m# A tibble: 4 × 4[39m
+"
+"1","[38;5;246m# Groups:   hotel [2][39m
+"
+"1","  hotel        temporada reservas   pct
+"
+"1","  [3m[38;5;246m<fct>[39m[23m        [3m[38;5;246m<chr>[39m[23m        [3m[38;5;246m<int>[39m[23m [3m[38;5;246m<dbl>[39m[23m
+"
+"1","[38;5;250m1[39m City Hotel   Resto        [4m4[24m[4m6[24m163  59.1
+"
+"1","[38;5;250m2[39m City Hotel   Verano       [4m3[24m[4m1[24m928  40.9
+"
+"1","[38;5;250m3[39m Resort Hotel Resto        [4m2[24m[4m3[24m874  60.7
+"
+"1","[38;5;250m4[39m Resort Hotel Verano       [4m1[24m[4m5[24m433  39.3
+"
+"0","cat(""\n"")"
+"1","
+"
+"0","# Viz 4: precio medio verano vs invierno"
+"0","x %>%"
+"0","  mutate(mes_num = as.integer(arrival_date_month),"
+"0","         temporada = ifelse(mes_num %in% 6:9, ""Verano"", ""Invierno (dic-feb)"")) %>%"
+"0","  filter(mes_num %in% c(6:9, 12, 1, 2)) %>%"
+"0","  group_by(hotel, temporada) %>%"
+"0","  summarise(adr_medio = round(mean(adr, na.rm = TRUE), 1), .groups = ""drop"") %>%"
+"0","  { cat(""Precio medio (ADR) verano vs invierno:\n""); print(.) }"
+"1","Precio medio (ADR) verano vs invierno:
+"
+"1","[38;5;246m# A tibble: 4 × 3[39m
+"
+"1","  hotel        temporada          adr_medio
+"
+"1","  [3m[38;5;246m<fct>[39m[23m        [3m[38;5;246m<chr>[39m[23m                  [3m[38;5;246m<dbl>[39m[23m
+"
+"1","[38;5;250m1[39m City Hotel   Invierno (dic-feb)      87.5
+"
+"1","[38;5;250m2[39m City Hotel   Verano                 115. 
+"
+"1","[38;5;250m3[39m Resort Hotel Invierno (dic-feb)      59.8
+"
+"1","[38;5;250m4[39m Resort Hotel Verano                 146. 
+"

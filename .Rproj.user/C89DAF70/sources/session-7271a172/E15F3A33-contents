@@ -1,0 +1,281 @@
+---
+title: "Dos Hoteles, Dos Portugales: Turismo y Clima (2015-2017)"
+author: "Máster Ciencia de Datos - UOC"
+date: "2025"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.width = 10, fig.height = 6)
+```
+
+## Paquetes necesarios
+
+```{r packages}
+library(tidyverse)   # dplyr, ggplot2, readr, lubridate...
+library(lubridate)   # manejo de fechas
+library(scales)      # formato de ejes en ggplot2
+```
+
+---
+
+## 1. Carga y limpieza del dataset hotelero
+
+```{r load_hotel}
+# Ajusta la ruta si es necesario
+x <- read.csv("./data/hotel_bookings.csv", stringsAsFactors = TRUE,
+              na.strings = c("", "NA"))
+dim(x)  # 119,390 filas x 32 columnas
+```
+
+### Limpieza de outliers (siguiendo el notebook original)
+
+```{r clean_hotel}
+# Eliminar reservas con >= 10 adultos
+x <- x[x$adults < 10, ]
+
+# Eliminar ADR negativos o extremos (>= 1000)
+x <- x[x$adr >= 0 & x$adr < 1000, ]
+
+# Reemplazar NAs en children por 0
+x[is.na(x$children), "children"] <- 0
+
+# Eliminar estancias sin noches, sin coste o sin huéspedes
+x <- x[x$adr > 0 &
+       (x$stays_in_week_nights + x$stays_in_weekend_nights) > 0 &
+       (x$adults + x$children + x$babies) > 0, ]
+
+dim(x)
+```
+
+### Crear variable de fecha de llegada y tipo de visita
+
+```{r fecha_tipo}
+# Fecha de llegada (columna 'dia')
+x$dia <- as_date(paste0(x$arrival_date_year, "-",
+                         x$arrival_date_month, "-",
+                         x$arrival_date_day_of_month))
+
+# Clasificación del tipo de visita
+x$tipo <- ifelse(x$stays_in_weekend_nights == 0, "Trabajo",
+          ifelse(x$stays_in_week_nights == 0, "Fin de semana",
+          ifelse(x$stays_in_week_nights == 1 & wday(x$dia) == 6, "Fin de semana",
+          ifelse(x$stays_in_week_nights == 5 &
+                 (x$stays_in_weekend_nights == 3 |
+                  x$stays_in_weekend_nights == 4), "Paquete vacacional",
+          ifelse(x$stays_in_week_nights <= 5 &
+                 x$stays_in_weekend_nights < 3, "Trabajo + descanso",
+          "Vacaciones")))))
+
+# Número de mes como entero (para el join climático)
+mes_map <- c("January"=1,"February"=2,"March"=3,"April"=4,
+             "May"=5,"June"=6,"July"=7,"August"=8,
+             "September"=9,"October"=10,"November"=11,"December"=12)
+
+x$mes_num <- mes_map[as.character(x$arrival_date_month)]
+
+cat("Registros tras limpieza:", nrow(x), "\n")
+cat("Período:", as.character(min(x$dia)), "→", as.character(max(x$dia)), "\n")
+```
+
+---
+
+## 2. Carga y preprocesamiento de los datos climáticos del IPMA
+
+Los datos provienen de:
+- **Lisboa / Instituto Geofísico** (estación nº 535)
+- **Faro / Aeroporto** (estación nº 554, representativa del Algarve)
+
+Fuente: IPMA – Instituto Português do Mar e da Atmosfera (https://www.ipma.pt)
+
+### 2.1 Función de carga reutilizable
+
+```{r funcion_carga_clima}
+cargar_clima <- function(ruta_temp, ruta_prec, ciudad) {
+  
+  # -- Temperatura --
+  temp <- read.csv(ruta_temp, stringsAsFactors = FALSE, 
+                   fileEncoding = "UTF-8") %>%
+    rename(
+      fecha        = Date,
+      temp_max_abs = 2,   # Máximo da máxima
+      temp_max_med = 3,   # Média da máxima
+      temp_media   = 4,   # Média da média  <-- la que usaremos
+      temp_min_med = 5,   # Média da mínima
+      temp_min_abs = 6    # Mínimo da mínima
+    ) %>%
+    mutate(
+      fecha      = dmy(fecha),
+      anio       = year(fecha),
+      mes_num    = month(fecha),
+      ciudad     = ciudad
+    ) %>%
+    select(fecha, anio, mes_num, ciudad, temp_media, temp_max_med, temp_min_med)
+  
+  # -- Precipitación --
+  prec <- read.csv(ruta_prec, stringsAsFactors = FALSE,
+                   fileEncoding = "UTF-8") %>%
+    rename(
+      fecha       = Date,
+      prec_total  = 2,    # Total mensal
+      prec_max    = 3     # Máximo diário
+    ) %>%
+    mutate(
+      fecha   = dmy(fecha),
+      anio    = year(fecha),
+      mes_num = month(fecha),
+      ciudad  = ciudad
+    ) %>%
+    select(fecha, anio, mes_num, ciudad, prec_total)
+  
+  # -- Join temperatura + precipitación --
+  left_join(temp, prec, by = c("fecha", "anio", "mes_num", "ciudad"))
+}
+```
+
+### 2.2 Carga de Lisboa y Faro
+
+```{r cargar_ciudades}
+# IMPORTANTE: ajusta las rutas a donde hayas guardado los CSVs del IPMA
+lisboa <- cargar_clima(
+  ruta_temp = "./data/Média mensal da temperatura do ar - Lisboa - Geofísico.csv",
+  ruta_prec = "./data/Quantidade de precipitação mensal - Lisboa - Geofísico.csv",
+  ciudad    = "Lisboa"
+)
+
+faro <- cargar_clima(
+  ruta_temp = "./data/Média mensal da temperatura do ar - Faro - Aeroporto.csv",
+  ruta_prec = "./data/Quantidade de precipitação mensal - Faro - Aeroporto.csv",
+  ciudad    = "Faro (Algarve)"
+)
+
+# Unir ambas ciudades
+clima_completo <- bind_rows(lisboa, faro)
+
+cat("Registros climáticos totales:", nrow(clima_completo), "\n")
+glimpse(clima_completo)
+```
+
+### 2.3 Filtrar solo el período del dataset hotelero (julio 2015 – agosto 2017)
+
+```{r filtrar_periodo}
+clima_periodo <- clima_completo %>%
+  filter(fecha >= as_date("2015-07-01") & fecha <= as_date("2017-08-31"))
+
+cat("Registros climáticos en el período hotelero:", nrow(clima_periodo), "\n")
+print(clima_periodo)
+```
+
+---
+
+## 3. Enriquecimiento: join hotel + clima
+
+Hacemos join por `arrival_date_year` + `mes_num` + `hotel` (Ciudad Hotel → Lisboa, Resort Hotel → Faro).
+
+```{r join_clima}
+# Tabla de correspondencia hotel → ciudad climática
+x <- x %>%
+  mutate(ciudad_clima = ifelse(hotel == "City Hotel", "Lisboa", "Faro (Algarve)"))
+
+# Preparar tabla climática para el join (una fila por ciudad/año/mes)
+clima_join <- clima_periodo %>%
+  select(anio, mes_num, ciudad, temp_media, temp_max_med, prec_total) %>%
+  rename(ciudad_clima = ciudad)
+
+# Join
+x_enriquecido <- x %>%
+  left_join(clima_join,
+            by = c("arrival_date_year" = "anio",
+                   "mes_num"           = "mes_num",
+                   "ciudad_clima"      = "ciudad_clima"))
+
+cat("Filas con temperatura asignada:",
+    sum(!is.na(x_enriquecido$temp_media)), "\n")
+cat("Filas sin temperatura (NAs):",
+    sum(is.na(x_enriquecido$temp_media)), "\n")
+
+glimpse(x_enriquecido %>% select(hotel, arrival_date_month, arrival_date_year,
+                                  ciudad_clima, temp_media, prec_total))
+```
+
+---
+
+## 4. Verificación rápida del enriquecimiento
+
+```{r verificacion}
+# Temperatura media por mes y hotel (debe mostrar diferencias estacionales)
+x_enriquecido %>%
+  group_by(hotel, arrival_date_month, mes_num) %>%
+  summarise(temp_media_mensual = mean(temp_media, na.rm = TRUE),
+            .groups = "drop") %>%
+  arrange(mes_num) %>%
+  pivot_wider(names_from = hotel, values_from = temp_media_mensual) %>%
+  select(mes_num, arrival_date_month, `City Hotel`, `Resort Hotel`) %>%
+  knitr::kable(digits = 1,
+               col.names = c("Mes nº", "Mes", "Lisboa (°C)", "Algarve (°C)"),
+               caption = "Temperatura media mensual por hotel (promedio 2015-2017)")
+```
+
+---
+
+## 5. Guardado del dataset enriquecido
+
+```{r guardar}
+# Guardar como CSV para reutilizar en las visualizaciones
+write.csv(x_enriquecido, "hotel_bookings_enriquecido.csv",
+          row.names = FALSE, fileEncoding = "UTF-8")
+
+# Guardar también la tabla climática del período
+write.csv(clima_periodo, "clima_portugal_2015_2017.csv",
+          row.names = FALSE, fileEncoding = "UTF-8")
+
+cat("Archivos guardados:\n")
+cat(" - hotel_bookings_enriquecido.csv (", nrow(x_enriquecido), "filas)\n")
+cat(" - clima_portugal_2015_2017.csv   (", nrow(clima_periodo), "filas)\n")
+```
+
+---
+
+## 6. Vista previa del dataset final
+
+```{r preview}
+# Columnas nuevas añadidas
+cat("Columnas nuevas incorporadas al dataset:\n")
+nuevas_cols <- c("dia", "mes_num", "tipo", "ciudad_clima",
+                 "temp_media", "temp_max_med", "prec_total")
+cat(paste(" -", nuevas_cols, collapse = "\n"), "\n\n")
+
+# Resumen de las variables climáticas
+x_enriquecido %>%
+  group_by(hotel) %>%
+  summarise(
+    temp_min  = min(temp_media, na.rm = TRUE),
+    temp_max  = max(temp_media, na.rm = TRUE),
+    temp_prom = mean(temp_media, na.rm = TRUE),
+    prec_min  = min(prec_total, na.rm = TRUE),
+    prec_max  = max(prec_total, na.rm = TRUE),
+    .groups   = "drop"
+  ) %>%
+  knitr::kable(digits = 1,
+               col.names = c("Hotel", "T. mín (°C)", "T. máx (°C)",
+                             "T. prom (°C)", "Prec. mín (mm)", "Prec. máx (mm)"),
+               caption = "Rango de variables climáticas por hotel (período 2015-2017)")
+```
+
+---
+
+## Notas metodológicas
+
+- **Estación Lisboa**: Instituto Geofísico (nº 535), lat 38.72°N, lon 9.15°W, alt 77m.
+  Normal climatológica 1991-2020.
+- **Estación Faro**: Aeroporto (nº 554), lat 37.02°N, lon 7.97°W, alt 5m.
+  Datos reales mensuales 1965-2020.
+- El join se realiza a nivel **mes × año × hotel**, asignando la temperatura y
+  precipitación real del mes de llegada de cada reserva.
+- Fuente IPMA: https://www.ipma.pt/pt/oclima/series.longas/

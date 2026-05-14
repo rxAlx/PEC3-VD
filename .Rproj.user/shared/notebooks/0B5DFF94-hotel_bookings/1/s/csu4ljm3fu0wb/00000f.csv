@@ -1,0 +1,2 @@
+"0","# require(ggstatsplot)"
+"0","ggbetweenstats(data=x, x=hotel, y=adr)"

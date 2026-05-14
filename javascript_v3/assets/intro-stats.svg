@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" role="img" aria-labelledby="intro-title">
+  <title id="intro-title">Contexto: dos hoteles en Portugal, 2015-2017</title>
+  <defs>
+    <linearGradient id="bg-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8f3eb"/>
+      <stop offset="100%" stop-color="#eef3f8"/>
+    </linearGradient>
+    <linearGradient id="bar-lisboa" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#2166ac"/>
+      <stop offset="100%" stop-color="#4393c3"/>
+    </linearGradient>
+    <linearGradient id="bar-algarve" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#d6604d"/>
+      <stop offset="100%" stop-color="#f4a261"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Fondo -->
+  <rect width="900" height="600" rx="24" fill="url(#bg-grad)"/>
+
+  <!-- Título superior -->
+  <text x="450" y="50" font-family="Inter, Arial, sans-serif" font-size="21" font-weight="700"
+        fill="#11212d" text-anchor="middle">Dos hoteles · Portugal · 2015–2017</text>
+  <text x="450" y="74" font-family="Inter, Arial, sans-serif" font-size="13"
+        fill="#5c6770" text-anchor="middle">Hotel Booking Demand Dataset · António et al., 2019</text>
+
+  <!-- Separador -->
+  <line x1="60" y1="90" x2="840" y2="90" stroke="#11212d" stroke-opacity="0.1" stroke-width="1"/>
+
+  <!-- ── TARJETA LISBOA ── y=106, height=240 → termina en y=346 -->
+  <rect x="40" y="106" width="385" height="240" rx="18"
+        fill="white" fill-opacity="0.88" stroke="#2166ac" stroke-width="1.5" stroke-opacity="0.3"/>
+
+  <!-- Header -->
+  <circle cx="70" cy="138" r="9" fill="#2166ac"/>
+  <text x="88" y="143" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700"
+        fill="#2166ac">Lisboa · City Hotel (H2)</text>
+
+  <!-- Cifra reservas -->
+  <text x="68" y="192" font-family="Inter, Arial, sans-serif" font-size="42" font-weight="800"
+        fill="#11212d">79.330</text>
+  <text x="68" y="214" font-family="Inter, Arial, sans-serif" font-size="12"
+        fill="#5c6770">reservas totales</text>
+
+  <!-- ADR Lisboa -->
+  <text x="68" y="246" font-family="Inter, Arial, sans-serif" font-size="12" fill="#5c6770">ADR medio</text>
+  <rect x="68" y="252" width="278" height="9" rx="4" fill="#dde8f3"/>
+  <rect x="68" y="252" width="196" height="9" rx="4" fill="url(#bar-lisboa)"/>
+  <text x="354" y="261" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700"
+        fill="#2166ac" text-anchor="end">105 €</text>
+
+  <!-- Cancelación Lisboa -->
+  <text x="68" y="286" font-family="Inter, Arial, sans-serif" font-size="12" fill="#5c6770">Tasa de cancelación</text>
+  <rect x="68" y="292" width="278" height="9" rx="4" fill="#dde8f3"/>
+  <rect x="68" y="292" width="117" height="9" rx="4" fill="url(#bar-lisboa)" fill-opacity="0.45"/>
+  <text x="354" y="301" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700"
+        fill="#2166ac" text-anchor="end">42 %</text>
+
+  <!-- ── TARJETA ALGARVE ── y=106, height=240 -->
+  <rect x="475" y="106" width="385" height="240" rx="18"
+        fill="white" fill-opacity="0.88" stroke="#d6604d" stroke-width="1.5" stroke-opacity="0.3"/>
+
+  <circle cx="505" cy="138" r="9" fill="#d6604d"/>
+  <text x="523" y="143" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700"
+        fill="#d6604d">Algarve · Resort Hotel (H1)</text>
+
+  <text x="503" y="192" font-family="Inter, Arial, sans-serif" font-size="42" font-weight="800"
+        fill="#11212d">40.060</text>
+  <text x="503" y="214" font-family="Inter, Arial, sans-serif" font-size="12"
+        fill="#5c6770">reservas totales</text>
+
+  <!-- ADR Algarve -->
+  <text x="503" y="246" font-family="Inter, Arial, sans-serif" font-size="12" fill="#5c6770">ADR medio</text>
+  <rect x="503" y="252" width="278" height="9" rx="4" fill="#f7e5e2"/>
+  <rect x="503" y="252" width="177" height="9" rx="4" fill="url(#bar-algarve)"/>
+  <text x="789" y="261" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700"
+        fill="#d6604d" text-anchor="end">94 €</text>
+
+  <!-- Cancelación Algarve -->
+  <text x="503" y="286" font-family="Inter, Arial, sans-serif" font-size="12" fill="#5c6770">Tasa de cancelación</text>
+  <rect x="503" y="292" width="278" height="9" rx="4" fill="#f7e5e2"/>
+  <rect x="503" y="292" width="78" height="9" rx="4" fill="url(#bar-algarve)" fill-opacity="0.45"/>
+  <text x="789" y="301" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700"
+        fill="#d6604d" text-anchor="end">28 %</text>
+
+  <!-- ── FILA INFERIOR: 3 KPIs ── y=366, height=116 → termina en y=482 -->
+  <!-- KPI 1 -->
+  <rect x="40" y="366" width="252" height="116" rx="18"
+        fill="white" fill-opacity="0.88" stroke="#11212d" stroke-width="1" stroke-opacity="0.08"/>
+  <text x="166" y="416" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800"
+        fill="#11212d" text-anchor="middle">119.390</text>
+  <text x="166" y="440" font-family="Inter, Arial, sans-serif" font-size="13"
+        fill="#5c6770" text-anchor="middle">reservas en total</text>
+  <text x="166" y="460" font-family="Inter, Arial, sans-serif" font-size="11"
+        fill="#5c6770" text-anchor="middle">jul 2015 – ago 2017</text>
+
+  <!-- KPI 2 -->
+  <rect x="324" y="366" width="252" height="116" rx="18"
+        fill="white" fill-opacity="0.88" stroke="#11212d" stroke-width="1" stroke-opacity="0.08"/>
+  <text x="450" y="416" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800"
+        fill="#11212d" text-anchor="middle">178</text>
+  <text x="450" y="440" font-family="Inter, Arial, sans-serif" font-size="13"
+        fill="#5c6770" text-anchor="middle">países de origen</text>
+  <text x="450" y="460" font-family="Inter, Arial, sans-serif" font-size="11"
+        fill="#5c6770" text-anchor="middle">Portugal es el nº 1</text>
+
+  <!-- KPI 3 -->
+  <rect x="608" y="366" width="252" height="116" rx="18"
+        fill="white" fill-opacity="0.88" stroke="#11212d" stroke-width="1" stroke-opacity="0.08"/>
+  <text x="734" y="416" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800"
+        fill="#11212d" text-anchor="middle">37%</text>
+  <text x="734" y="440" font-family="Inter, Arial, sans-serif" font-size="13"
+        fill="#5c6770" text-anchor="middle">reservas canceladas</text>
+  <text x="734" y="460" font-family="Inter, Arial, sans-serif" font-size="11"
+        fill="#5c6770" text-anchor="middle">¿por qué tan alto?</text>
+
+  <!-- Pie -->
+  <text x="450" y="572" font-family="Inter, Arial, sans-serif" font-size="11"
+        fill="#5c6770" text-anchor="middle" font-style="italic">
+    Fuente: Hotel Booking Demand Dataset (António et al., 2019) + IPMA (2015-2017)
+  </text>
+</svg>

@@ -1,0 +1,7 @@
+"0","x=read.csv(""hotel_bookings.csv"", stringsAsFactors = TRUE, na.strings = c("""", ""NA""))"
+"0","dim(x)"
+"1","[1]"
+"1"," 119390"
+"1","     32"
+"1","
+"

@@ -1,0 +1,179 @@
+---
+title: "Visualización 2 — Corregida: Estacionalidad normalizada + Temperatura"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.width = 11, fig.height = 7)
+```
+
+```{r packages}
+library(tidyverse)
+library(lubridate)
+library(scales)
+```
+
+```{r load}
+x <- read.csv("hotel_bookings_enriquecido.csv",
+              stringsAsFactors = TRUE, fileEncoding = "UTF-8")
+
+COL_LISBOA  <- "#2166AC"
+COL_ALGARVE <- "#D6604D"
+
+MESES_ORDER <- c("January","February","March","April","May","June",
+                 "July","August","September","October","November","December")
+MESES_LABEL <- c("Ene","Feb","Mar","Abr","May","Jun",
+                 "Jul","Ago","Sep","Oct","Nov","Dic")
+
+x$arrival_date_month <- factor(x$arrival_date_month, levels = MESES_ORDER)
+```
+
+```{r viz2_corregida, fig.height = 7}
+
+# --- 1. Índice estacional (% sobre la media anual de cada hotel) ---
+# Promedio de reservas por mes y año, luego media entre años
+df_reservas_raw <- x %>%
+  count(hotel, arrival_date_month, arrival_date_year) %>%
+  group_by(hotel, arrival_date_month) %>%
+  summarise(reservas_media = mean(n), .groups = "drop")
+
+# Media anual de cada hotel (promedio de los 12 meses)
+media_anual <- df_reservas_raw %>%
+  group_by(hotel) %>%
+  summarise(media_global = mean(reservas_media), .groups = "drop")
+
+# Índice: cuánto % está por encima o debajo de su propia media
+df_indice <- df_reservas_raw %>%
+  left_join(media_anual, by = "hotel") %>%
+  mutate(
+    indice    = (reservas_media / media_global - 1) * 100,  # % desviación
+    mes_num   = as.integer(arrival_date_month)
+  )
+
+# --- 2. Temperatura media mensual real (promedio 2015-2017 por hotel) ---
+df_temp <- x %>%
+  group_by(hotel, arrival_date_month) %>%
+  summarise(temp_media = mean(temp_media, na.rm = TRUE), .groups = "drop") %>%
+  mutate(mes_num = as.integer(arrival_date_month))
+
+# --- 3. Escala para superponer temperatura sobre el índice ---
+# El índice va aprox de -50 a +50 según el hotel
+# La temperatura va de ~11 a ~25 °C
+# Escala: mapeamos temp al rango del índice
+temp_min <- min(df_temp$temp_media, na.rm = TRUE)
+temp_max <- max(df_temp$temp_media, na.rm = TRUE)
+idx_min  <- min(df_indice$indice)
+idx_max  <- max(df_indice$indice)
+
+# Función de transformación lineal temp → escala índice
+temp_a_idx <- function(t) {
+  idx_min + (t - temp_min) / (temp_max - temp_min) * (idx_max - idx_min)
+}
+idx_a_temp <- function(i) {
+  temp_min + (i - idx_min) / (idx_max - idx_min) * (temp_max - temp_min)
+}
+
+# --- 4. Gráfico ---
+hotel_cols  <- c("City Hotel" = COL_LISBOA, "Resort Hotel" = COL_ALGARVE)
+hotel_labs  <- c("City Hotel" = "Lisboa", "Resort Hotel" = "Algarve")
+
+ggplot() +
+
+  # Línea de referencia en 0 (= media anual de cada hotel)
+  geom_hline(yintercept = 0, linetype = "dotted", color = "grey60", linewidth = 0.7) +
+
+  # Área rellena bajo la curva del índice
+  geom_ribbon(
+    data = df_indice,
+    aes(x = mes_num, ymin = 0, ymax = indice, fill = hotel),
+    alpha = 0.15
+  ) +
+
+  # Líneas del índice estacional (sólidas)
+  geom_line(
+    data = df_indice,
+    aes(x = mes_num, y = indice, color = hotel),
+    linewidth = 1.3
+  ) +
+  geom_point(
+    data = df_indice,
+    aes(x = mes_num, y = indice, color = hotel),
+    size = 3
+  ) +
+
+  # Líneas de temperatura (discontinuas, en escala mapeada)
+  geom_line(
+    data = df_temp,
+    aes(x = mes_num, y = temp_a_idx(temp_media), color = hotel),
+    linetype = "dashed", linewidth = 1.0, alpha = 0.75
+  ) +
+  geom_point(
+    data = df_temp,
+    aes(x = mes_num, y = temp_a_idx(temp_media), color = hotel),
+    shape = 17, size = 2.8, alpha = 0.75
+  ) +
+
+  # Doble eje Y
+  scale_y_continuous(
+    name = "Desviación respecto a la media anual (%)",
+    labels = function(x) paste0(ifelse(x > 0, "+", ""), round(x), "%"),
+    sec.axis = sec_axis(
+      transform = ~ idx_a_temp(.),
+      name   = "Temperatura media (°C)",
+      labels = function(x) paste0(round(x, 0), "°C"),
+      breaks = seq(10, 26, by = 4)
+    )
+  ) +
+
+  scale_x_continuous(
+    breaks = 1:12,
+    labels = MESES_LABEL
+  ) +
+
+  scale_color_manual(values = hotel_cols, labels = hotel_labs, name = NULL) +
+  scale_fill_manual(values  = hotel_cols, labels = hotel_labs, guide = "none") +
+
+  # Anotación leyenda de líneas
+  annotate("segment", x = 9.2, xend = 9.7, y = idx_max * 0.92,
+           yend = idx_max * 0.92, color = "grey30", linewidth = 1.0) +
+  annotate("text", x = 9.85, y = idx_max * 0.92,
+           label = "Reservas", hjust = 0, size = 3.2, color = "grey30") +
+  annotate("segment", x = 9.2, xend = 9.7, y = idx_max * 0.78,
+           yend = idx_max * 0.78, color = "grey30", linetype = "dashed",
+           linewidth = 1.0) +
+  annotate("text", x = 9.85, y = idx_max * 0.78,
+           label = "Temperatura", hjust = 0, size = 3.2, color = "grey30") +
+
+  labs(
+    title    = "El Algarve vive del verano. Lisboa, todo el año.",
+    subtitle = "Desviación estacional de reservas respecto a la media anual de cada hotel\ny temperatura media mensual real (2015-2017)",
+    x        = NULL,
+    caption  = "Fuente: Hotel Booking Demand Dataset + IPMA (Lisboa-Geofísico y Faro-Aeropuerto)\nÍndice: % de desviación respecto a la media mensual de cada hotel por separado"
+  ) +
+
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 15),
+    plot.subtitle    = element_text(color = "grey40", size = 11),
+    legend.position  = "top",
+    legend.key.size  = unit(0.6, "cm"),
+    panel.grid.minor = element_blank(),
+    plot.caption     = element_text(color = "grey55", size = 9)
+  )
+```
+
+---
+
+### Por qué este gráfico es mejor
+
+El índice estacional **elimina el efecto del volumen absoluto** (Lisboa tiene el doble de reservas que el Algarve) y muestra lo que realmente importa para el storytelling: **cuánto se aleja cada hotel de su propio ritmo normal** en cada mes.
+
+- Un valor de **+50%** en agosto del Algarve significa que ese mes tiene un 50% más de reservas que su media anual.
+- Un valor cercano a **0** en Lisboa en enero significa que ese mes es completamente normal para Lisboa.
+- La temperatura (línea discontinua) permite ver visualmente si ambas curvas se mueven juntas.
+
+**Cifras clave que ahora se ven claramente:**
+- El Algarve oscila entre **~-40% en invierno** y **~+50% en verano**.
+- Lisboa oscila apenas entre **~-15%** y **+15%** — casi plana.
+- La temperatura del Algarve sube y baja exactamente al ritmo de sus reservas. La de Lisboa también sube en verano, pero sus reservas apenas se mueven.

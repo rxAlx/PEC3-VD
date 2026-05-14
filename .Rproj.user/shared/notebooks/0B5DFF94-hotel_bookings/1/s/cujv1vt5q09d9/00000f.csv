@@ -1,0 +1,4 @@
+"0","ggplot(data=x, aes(x=hotel, y=adr, fill=hotel)) + "
+"0","  geom_violin() + geom_boxplot(width=.1, outliers = F) +"
+"0","  coord_flip() + "
+"0","  theme_light()"

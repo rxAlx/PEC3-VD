@@ -1,0 +1,230 @@
+---
+title: "Viz 2 — ¿El pico de octubre es real o efecto de cancelaciones?"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.width = 11, fig.height = 8)
+```
+
+```{r packages}
+library(tidyverse)
+library(lubridate)
+library(scales)
+library(patchwork)  # para poner los dos gráficos uno encima del otro
+```
+
+```{r load}
+x <- read.csv("hotel_bookings_enriquecido.csv",
+              stringsAsFactors = TRUE, fileEncoding = "UTF-8")
+
+COL_LISBOA  <- "#2166AC"
+COL_ALGARVE <- "#D6604D"
+
+MESES_ORDER <- c("January","February","March","April","May","June",
+                 "July","August","September","October","November","December")
+MESES_LABEL <- c("Ene","Feb","Mar","Abr","May","Jun",
+                 "Jul","Ago","Sep","Oct","Nov","Dic")
+
+x$arrival_date_month <- factor(x$arrival_date_month, levels = MESES_ORDER)
+
+# Aseguramos que is_canceled es numérico
+x$is_canceled <- as.integer(as.character(x$is_canceled))
+```
+
+---
+
+## Función reutilizable: calcular índice estacional
+
+```{r funcion_indice}
+calcular_indice <- function(datos, titulo_subtitulo) {
+
+  hotel_cols <- c("City Hotel" = COL_LISBOA, "Resort Hotel" = COL_ALGARVE)
+  hotel_labs <- c("City Hotel" = "Lisboa",   "Resort Hotel" = "Algarve")
+
+  # --- Índice estacional ---
+  df_reservas <- datos %>%
+    count(hotel, arrival_date_month, arrival_date_year) %>%
+    group_by(hotel, arrival_date_month) %>%
+    summarise(reservas_media = mean(n), .groups = "drop")
+
+  media_anual <- df_reservas %>%
+    group_by(hotel) %>%
+    summarise(media_global = mean(reservas_media), .groups = "drop")
+
+  df_indice <- df_reservas %>%
+    left_join(media_anual, by = "hotel") %>%
+    mutate(
+      indice  = (reservas_media / media_global - 1) * 100,
+      mes_num = as.integer(arrival_date_month)
+    )
+
+  # --- Temperatura ---
+  df_temp <- datos %>%
+    group_by(hotel, arrival_date_month) %>%
+    summarise(temp_media = mean(temp_media, na.rm = TRUE), .groups = "drop") %>%
+    mutate(mes_num = as.integer(arrival_date_month))
+
+  # --- Escala temperatura → índice ---
+  temp_min <- min(df_temp$temp_media, na.rm = TRUE)
+  temp_max <- max(df_temp$temp_media, na.rm = TRUE)
+  idx_min  <- min(df_indice$indice)
+  idx_max  <- max(df_indice$indice)
+
+  temp_a_idx <- function(t) idx_min + (t - temp_min) / (temp_max - temp_min) * (idx_max - idx_min)
+  idx_a_temp <- function(i) temp_min + (i - idx_min) / (idx_max - idx_min) * (temp_max - temp_min)
+
+  # --- Gráfico ---
+  ggplot() +
+    geom_hline(yintercept = 0, linetype = "dotted", color = "grey60", linewidth = 0.7) +
+
+    geom_ribbon(
+      data = df_indice,
+      aes(x = mes_num, ymin = 0, ymax = indice, fill = hotel),
+      alpha = 0.15
+    ) +
+    geom_line(
+      data = df_indice,
+      aes(x = mes_num, y = indice, color = hotel),
+      linewidth = 1.3
+    ) +
+    geom_point(
+      data = df_indice,
+      aes(x = mes_num, y = indice, color = hotel),
+      size = 3
+    ) +
+    # Etiquetas del valor en cada punto del Algarve (para comparar fácil)
+    geom_text(
+      data = df_indice %>% filter(hotel == "Resort Hotel"),
+      aes(x = mes_num, y = indice,
+          label = paste0(ifelse(indice > 0, "+", ""), round(indice, 0), "%")),
+      vjust = -1.1, size = 3, color = COL_ALGARVE, fontface = "bold"
+    ) +
+    geom_line(
+      data = df_temp,
+      aes(x = mes_num, y = temp_a_idx(temp_media), color = hotel),
+      linetype = "dashed", linewidth = 1.0, alpha = 0.75
+    ) +
+    geom_point(
+      data = df_temp,
+      aes(x = mes_num, y = temp_a_idx(temp_media), color = hotel),
+      shape = 17, size = 2.8, alpha = 0.75
+    ) +
+    scale_y_continuous(
+      name = "Desviación respecto a la media anual (%)",
+      labels = function(x) paste0(ifelse(x >= 0, "+", ""), round(x), "%"),
+      sec.axis = sec_axis(
+        transform = ~ idx_a_temp(.),
+        name   = "Temperatura media (°C)",
+        labels = function(x) paste0(round(x, 0), "°C"),
+        breaks = seq(10, 26, by = 4)
+      )
+    ) +
+    scale_x_continuous(breaks = 1:12, labels = MESES_LABEL) +
+    scale_color_manual(values = hotel_cols, labels = hotel_labs, name = NULL) +
+    scale_fill_manual(values  = hotel_cols, labels = hotel_labs, guide = "none") +
+    annotate("segment", x=9.3, xend=9.8, y=idx_max*0.90, yend=idx_max*0.90,
+             color="grey30", linewidth=1.0) +
+    annotate("text", x=9.95, y=idx_max*0.90,
+             label="Reservas", hjust=0, size=3.1, color="grey30") +
+    annotate("segment", x=9.3, xend=9.8, y=idx_max*0.75, yend=idx_max*0.75,
+             color="grey30", linetype="dashed", linewidth=1.0) +
+    annotate("text", x=9.95, y=idx_max*0.75,
+             label="Temperatura", hjust=0, size=3.1, color="grey30") +
+    labs(
+      subtitle = titulo_subtitulo,
+      x = NULL,
+      caption = "Fuente: Hotel Booking Demand Dataset + IPMA (Lisboa-Geofísico y Faro-Aeropuerto)"
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(
+      plot.subtitle    = element_text(color = "grey35", size = 11, face = "bold"),
+      legend.position  = "top",
+      panel.grid.minor = element_blank(),
+      plot.caption     = element_text(color = "grey55", size = 8)
+    )
+}
+```
+
+---
+
+## Comparación: todas las reservas vs. solo confirmadas
+
+```{r comparacion, fig.height = 12}
+
+# Gráfico A: todas las reservas (incluye canceladas)
+g_todas <- calcular_indice(
+  datos               = x,
+  titulo_subtitulo    = "A) Todas las reservas (incluidas cancelaciones)"
+)
+
+# Gráfico B: solo reservas que se materializaron (is_canceled == 0)
+g_confirmadas <- calcular_indice(
+  datos               = x %>% filter(is_canceled == 0),
+  titulo_subtitulo    = "B) Solo reservas confirmadas (sin cancelaciones)"
+)
+
+# Combinar con patchwork
+(g_todas / g_confirmadas) +
+  plot_annotation(
+    title   = "¿El pico de octubre del Algarve es real o un artefacto de cancelaciones?",
+    caption = "Si el pico persiste en B), el patrón es real. Si se modera o desplaza, era efecto de cancelaciones de verano.",
+    theme   = theme(
+      plot.title   = element_text(face = "bold", size = 15),
+      plot.caption = element_text(color = "grey40", size = 10, face = "italic")
+    )
+  )
+```
+
+---
+
+## Tabla comparativa: índice Algarve por mes
+
+```{r tabla_comparacion}
+# Calcular índices por separado para tabular
+calcular_solo_indice <- function(datos) {
+  datos %>%
+    count(hotel, arrival_date_month, arrival_date_year) %>%
+    group_by(hotel, arrival_date_month) %>%
+    summarise(reservas_media = mean(n), .groups = "drop") %>%
+    group_by(hotel) %>%
+    mutate(
+      media_global = mean(reservas_media),
+      indice       = round((reservas_media / media_global - 1) * 100, 1)
+    ) %>%
+    ungroup()
+}
+
+idx_todas       <- calcular_solo_indice(x)
+idx_confirmadas <- calcular_solo_indice(x %>% filter(is_canceled == 0))
+
+# Tabla solo Algarve
+comparacion <- idx_todas %>%
+  filter(hotel == "Resort Hotel") %>%
+  select(arrival_date_month, indice_todas = indice) %>%
+  left_join(
+    idx_confirmadas %>%
+      filter(hotel == "Resort Hotel") %>%
+      select(arrival_date_month, indice_confirmadas = indice),
+    by = "arrival_date_month"
+  ) %>%
+  mutate(
+    diferencia = indice_confirmadas - indice_todas,
+    mes        = MESES_LABEL[as.integer(arrival_date_month)]
+  ) %>%
+  select(mes, indice_todas, indice_confirmadas, diferencia)
+
+knitr::kable(
+  comparacion,
+  col.names = c("Mes", "Índice (todas)", "Índice (confirmadas)", "Diferencia"),
+  digits    = 1,
+  align     = "lrrr",
+  caption   = "Algarve (Resort Hotel): índice estacional con y sin cancelaciones"
+)
+```
+
+**Interpretación de la tabla:**
+- Si `diferencia` es **negativa** en verano → las cancelaciones inflaban artificialmente esos meses.
+- Si `diferencia` es **positiva** en otoño → octubre era subestimado (pocas cancelaciones en ese mes).
+- Si los índices son similares en ambas columnas → el patrón es completamente real.

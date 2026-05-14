@@ -1,0 +1,799 @@
+---
+title: "Dos Hoteles, Dos Portugales — Visualizaciones"
+author: "Máster Ciencia de Datos - UOC"
+date: "2025"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.width = 11, fig.height = 7)
+```
+
+```{r packages}
+library(tidyverse)
+library(lubridate)
+library(scales)
+library(ggplot2)
+```
+
+```{r load_data}
+x <- read.csv("./data/hotel_bookings_enriquecido.csv",
+              stringsAsFactors = TRUE,
+              fileEncoding = "UTF-8")
+
+# Paleta de colores consistente en todos los gráficos
+COL_LISBOA  <- "#2166AC"   # azul
+COL_ALGARVE <- "#D6604D"   # coral/naranja
+COL_TEMP    <- "#F4A261"   # ámbar para temperatura
+COL_PREC    <- "#457B9D"   # azul para precipitación
+
+# Orden natural de los meses en inglés (como vienen en el dataset)
+MESES_ORDER <- c("January","February","March","April","May","June",
+                 "July","August","September","October","November","December")
+
+x$arrival_date_month <- factor(x$arrival_date_month, levels = MESES_ORDER)
+
+# Etiquetas cortas para los meses (para ejes)
+MESES_LABEL <- c("Ene","Feb","Mar","Abr","May","Jun",
+                 "Jul","Ago","Sep","Oct","Nov","Dic")
+```
+
+---
+
+## Visualización 1 — ¿De dónde vienen y a qué hotel van?
+
+**Pregunta:** ¿Los turistas de cada país eligen Lisboa o el Algarve?
+**Gráfico:** Barras apiladas horizontales (top 15 países por reservas)
+
+```{r viz1_origen_hotel, fig.height=8}
+
+# Top 15 países (excluyendo registros sin país)
+top_paises <- x %>%
+  filter(!is.na(country) & country != "NULL") %>%
+  count(country, sort = TRUE) %>%
+  slice_head(n = 15) %>%
+  pull(country)
+
+# Preparar datos: proporción por hotel dentro de cada país
+df_v1 <- x %>%
+  filter(country %in% top_paises) %>%
+  count(country, hotel) %>%
+  group_by(country) %>%
+  mutate(
+    total      = sum(n),
+    porcentaje = n / total * 100
+  ) %>%
+  ungroup() %>%
+  mutate(country = fct_reorder(country, total))
+
+# Gráfico
+ggplot(df_v1, aes(x = country, y = porcentaje, fill = hotel)) +
+  geom_col(width = 0.7) +
+  geom_text(
+    data = df_v1 %>% group_by(country) %>% summarise(total = first(total)),
+    aes(x = country, y = 102, label = scales::comma(total), fill = NULL),
+    hjust = 0, size = 3.2, color = "grey40"
+  ) +
+  scale_fill_manual(
+    values = c("City Hotel" = COL_LISBOA, "Resort Hotel" = COL_ALGARVE),
+    labels = c("City Hotel" = "Lisboa (City Hotel)",
+               "Resort Hotel" = "Algarve (Resort Hotel)")
+  ) +
+  scale_y_continuous(
+    labels = function(x) paste0(x, "%"),
+    limits = c(0, 115),
+    breaks = seq(0, 100, 25)
+  ) +
+  coord_flip() +
+  labs(
+    title    = "¿De dónde vienen los turistas y qué Portugal eligen?",
+    subtitle = "Top 15 países de origen · % de reservas por tipo de hotel",
+    x        = NULL,
+    y        = "% de reservas",
+    fill     = NULL,
+    caption  = "Fuente: Hotel Booking Demand Dataset (António et al., 2019)"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 15),
+    plot.subtitle    = element_text(color = "grey40", size = 11),
+    legend.position  = "top",
+    legend.key.size  = unit(0.5, "cm"),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor   = element_blank(),
+    plot.caption     = element_text(color = "grey55", size = 9)
+  )
+```
+
+**Lectura clave:** Portugal (PRT) y el Reino Unido (GBR) dominan el Algarve. Francia (FRA) y Alemania (DEU) eligen Lisboa. España (ESP) está repartida.
+
+---
+
+## Visualización 2 — ¿Cuándo viajan y qué temperatura hace?
+
+**Pregunta:** ¿La estacionalidad de las reservas sigue al termómetro?
+**Gráfico:** Líneas de reservas por mes + temperatura media (doble eje Y)
+
+```{r viz2_estacionalidad_clima, fig.height=7}
+
+# Reservas por mes y hotel (promedio de los 3 años para suavizar)
+df_reservas <- x %>%
+  count(hotel, arrival_date_month, arrival_date_year) %>%
+  group_by(hotel, arrival_date_month) %>%
+  summarise(reservas = mean(n), .groups = "drop") %>%
+  mutate(mes_num = as.integer(arrival_date_month))
+
+# Temperatura media por mes y hotel (promedio real del período 2015-2017)
+df_temp <- x %>%
+  group_by(hotel, arrival_date_month) %>%
+  summarise(temp_media = mean(temp_media, na.rm = TRUE), .groups = "drop") %>%
+  mutate(mes_num = as.integer(arrival_date_month))
+
+# Factor de escala para el segundo eje (temperatura → escala reservas)
+escala <- max(df_reservas$reservas, na.rm = TRUE) /
+          max(df_temp$temp_media, na.rm = TRUE)
+
+# Paleta por hotel
+hotel_cols <- c("City Hotel"   = COL_LISBOA,
+                "Resort Hotel" = COL_ALGARVE)
+
+ggplot() +
+  # Barras de reservas (fondo, semitransparentes)
+  geom_col(
+    data = df_reservas,
+    aes(x = mes_num, y = reservas, fill = hotel),
+    position = "dodge", alpha = 0.25, width = 0.8
+  ) +
+  # Líneas de reservas
+  geom_line(
+    data = df_reservas,
+    aes(x = mes_num, y = reservas, color = hotel),
+    linewidth = 1.1
+  ) +
+  geom_point(
+    data = df_reservas,
+    aes(x = mes_num, y = reservas, color = hotel),
+    size = 2.5
+  ) +
+  # Líneas de temperatura (segundo eje, escalado)
+  geom_line(
+    data = df_temp,
+    aes(x = mes_num, y = temp_media * escala, color = hotel),
+    linetype = "dashed", linewidth = 0.9, alpha = 0.8
+  ) +
+  geom_point(
+    data = df_temp,
+    aes(x = mes_num, y = temp_media * escala, color = hotel),
+    shape = 17, size = 2.5, alpha = 0.8
+  ) +
+  # Doble eje Y
+  scale_y_continuous(
+    name     = "Reservas medias por mes",
+    labels   = scales::comma,
+    sec.axis = sec_axis(
+      transform = ~ . / escala,
+      name      = "Temperatura media (°C)",
+      labels    = function(x) paste0(round(x, 0), "°C")
+    )
+  ) +
+  scale_x_continuous(
+    breaks = 1:12,
+    labels = MESES_LABEL
+  ) +
+  scale_color_manual(
+    values = hotel_cols,
+    labels = c("City Hotel" = "Lisboa", "Resort Hotel" = "Algarve")
+  ) +
+  scale_fill_manual(
+    values = hotel_cols,
+    guide  = "none"
+  ) +
+  annotate("text", x = 10.5, y = max(df_reservas$reservas) * 0.93,
+           label = "— Reservas\n--- Temperatura",
+           size = 4.2, color = "grey40", hjust = 0) +
+  labs(
+    title    = "El Algarve vive del verano. Lisboa, todo el año.",
+    subtitle = "Reservas medias mensuales y temperatura real (2015-2017)",
+    x        = NULL,
+    color    = NULL,
+    caption  = "Fuente: Hotel Booking Demand Dataset + IPMA (Estaciones Lisboa-Geofísico y Faro-Aeropuerto)"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title      = element_text(face = "bold", size = 15),
+    plot.subtitle   = element_text(color = "grey40", size = 11),
+    legend.position = "top",
+    panel.grid.minor = element_blank(),
+    plot.caption    = element_text(color = "grey55", size = 9)
+  )
+```
+
+**Lectura clave:** El Algarve tiene un pico brutal en julio-agosto que coincide exactamente con el calor. Lisboa mantiene una curva mucho más plana — la temperatura apenas explica sus reservas.
+
+## Visualización 2 — ¿Cuándo viajan y qué temperatura hace?
+
+Visualización normalizada para cada ciudad.
+
+```{r load}
+x <- read.csv("./data/hotel_bookings_enriquecido.csv",
+              stringsAsFactors = TRUE, fileEncoding = "UTF-8")
+
+COL_LISBOA  <- "#2166AC"
+COL_ALGARVE <- "#D6604D"
+
+MESES_ORDER <- c("January","February","March","April","May","June",
+                 "July","August","September","October","November","December")
+MESES_LABEL <- c("Ene","Feb","Mar","Abr","May","Jun",
+                 "Jul","Ago","Sep","Oct","Nov","Dic")
+
+x$arrival_date_month <- factor(x$arrival_date_month, levels = MESES_ORDER)
+```
+
+```{r viz2_corregida, fig.height = 7}
+
+# --- 1. Índice estacional (% sobre la media anual de cada hotel) ---
+# Promedio de reservas por mes y año, luego media entre años
+df_reservas_raw <- x %>%
+  count(hotel, arrival_date_month, arrival_date_year) %>%
+  group_by(hotel, arrival_date_month) %>%
+  summarise(reservas_media = mean(n), .groups = "drop")
+
+# Media anual de cada hotel (promedio de los 12 meses)
+media_anual <- df_reservas_raw %>%
+  group_by(hotel) %>%
+  summarise(media_global = mean(reservas_media), .groups = "drop")
+
+# Índice: cuánto % está por encima o debajo de su propia media
+df_indice <- df_reservas_raw %>%
+  left_join(media_anual, by = "hotel") %>%
+  mutate(
+    indice    = (reservas_media / media_global - 1) * 100,  # % desviación
+    mes_num   = as.integer(arrival_date_month)
+  )
+
+# --- 2. Temperatura media mensual real (promedio 2015-2017 por hotel) ---
+df_temp <- x %>%
+  group_by(hotel, arrival_date_month) %>%
+  summarise(temp_media = mean(temp_media, na.rm = TRUE), .groups = "drop") %>%
+  mutate(mes_num = as.integer(arrival_date_month))
+
+# --- 3. Escala para superponer temperatura sobre el índice ---
+# El índice va aprox de -50 a +50 según el hotel
+# La temperatura va de ~11 a ~25 °C
+# Escala: mapeamos temp al rango del índice
+temp_min <- min(df_temp$temp_media, na.rm = TRUE)
+temp_max <- max(df_temp$temp_media, na.rm = TRUE)
+idx_min  <- min(df_indice$indice)
+idx_max  <- max(df_indice$indice)
+
+# Función de transformación lineal temp → escala índice
+temp_a_idx <- function(t) {
+  idx_min + (t - temp_min) / (temp_max - temp_min) * (idx_max - idx_min)
+}
+idx_a_temp <- function(i) {
+  temp_min + (i - idx_min) / (idx_max - idx_min) * (temp_max - temp_min)
+}
+
+# --- 4. Gráfico ---
+hotel_cols  <- c("City Hotel" = COL_LISBOA, "Resort Hotel" = COL_ALGARVE)
+hotel_labs  <- c("City Hotel" = "Lisboa", "Resort Hotel" = "Algarve")
+
+ggplot() +
+
+  # Línea de referencia en 0 (= media anual de cada hotel)
+  geom_hline(yintercept = 0, linetype = "dotted", color = "grey60", linewidth = 0.7) +
+
+  # Área rellena bajo la curva del índice
+  geom_ribbon(
+    data = df_indice,
+    aes(x = mes_num, ymin = 0, ymax = indice, fill = hotel),
+    alpha = 0.15
+  ) +
+
+  # Líneas del índice estacional (sólidas)
+  geom_line(
+    data = df_indice,
+    aes(x = mes_num, y = indice, color = hotel),
+    linewidth = 1.3
+  ) +
+  geom_point(
+    data = df_indice,
+    aes(x = mes_num, y = indice, color = hotel),
+    size = 3
+  ) +
+
+  # Líneas de temperatura (discontinuas, en escala mapeada)
+  geom_line(
+    data = df_temp,
+    aes(x = mes_num, y = temp_a_idx(temp_media), color = hotel),
+    linetype = "dashed", linewidth = 1.0, alpha = 0.75
+  ) +
+  geom_point(
+    data = df_temp,
+    aes(x = mes_num, y = temp_a_idx(temp_media), color = hotel),
+    shape = 17, size = 2.8, alpha = 0.75
+  ) +
+
+  # Doble eje Y
+  scale_y_continuous(
+    name = "Desviación respecto a la media anual (%)",
+    labels = function(x) paste0(ifelse(x > 0, "+", ""), round(x), "%"),
+    sec.axis = sec_axis(
+      transform = ~ idx_a_temp(.),
+      name   = "Temperatura media (°C)",
+      labels = function(x) paste0(round(x, 0), "°C"),
+      breaks = seq(10, 26, by = 4)
+    )
+  ) +
+
+  scale_x_continuous(
+    breaks = 1:12,
+    labels = MESES_LABEL
+  ) +
+
+  scale_color_manual(values = hotel_cols, labels = hotel_labs, name = NULL) +
+  scale_fill_manual(values  = hotel_cols, labels = hotel_labs, guide = "none") +
+
+  # Anotación leyenda de líneas
+  annotate("segment", x = 9.2, xend = 9.7, y = idx_max * 0.92,
+           yend = idx_max * 0.92, color = "grey30", linewidth = 1.0) +
+  annotate("text", x = 9.85, y = idx_max * 0.92,
+           label = "Reservas", hjust = 0, size = 3.2, color = "grey30") +
+  annotate("segment", x = 9.2, xend = 9.7, y = idx_max * 0.78,
+           yend = idx_max * 0.78, color = "grey30", linetype = "dashed",
+           linewidth = 1.0) +
+  annotate("text", x = 9.85, y = idx_max * 0.78,
+           label = "Temperatura", hjust = 0, size = 3.2, color = "grey30") +
+
+  labs(
+    title    = "Algarve y Lisboa no son destinos de verano.",
+    subtitle = "Desviación estacional de reservas respecto a la media anual de cada hotel\ny temperatura media mensual real (2015-2017)",
+    x        = NULL,
+    caption  = "Fuente: Hotel Booking Demand Dataset + IPMA (Lisboa-Geofísico y Faro-Aeropuerto)\nÍndice: % de desviación respecto a la media mensual de cada hotel por separado"
+  ) +
+
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 15),
+    plot.subtitle    = element_text(color = "grey40", size = 11),
+    legend.position  = "top",
+    legend.key.size  = unit(0.6, "cm"),
+    panel.grid.minor = element_blank(),
+    plot.caption     = element_text(color = "grey55", size = 9)
+  )
+```
+
+---
+
+### Por qué este gráfico es mejor
+
+El índice estacional **elimina el efecto del volumen absoluto** (Lisboa tiene el doble de reservas que el Algarve) y muestra lo que realmente importa para el storytelling: **cuánto se aleja cada hotel de su propio ritmo normal** en cada mes.
+
+- Un valor de **+20%** en agosto del Algarve significa que ese mes tiene un 20% más de reservas que su media anual.
+- Un valor cercano a **0** en Lisboa en enero significa que ese mes es completamente normal para Lisboa.
+- La temperatura (línea discontinua) permite ver visualmente si ambas curvas se mueven juntas.
+
+**Cifras clave que ahora se ven claramente:**
+- El Algarve oscila entre **~-40% en invierno** y **~+20% en verano**.
+- Lisboa oscila apenas entre **~-15%** y **+15%** — casi plana.
+- La temperatura del Algarve sube y baja exactamente al ritmo de sus reservas. La de Lisboa también sube en verano, pero sus reservas apenas se mueven.
+
+---
+
+## Visualización 2 mejorado: Solo viajes no cancelados:
+
+```{r load}
+x <- read.csv("./data/hotel_bookings_enriquecido.csv",
+              stringsAsFactors = TRUE, fileEncoding = "UTF-8")
+
+COL_LISBOA  <- "#2166AC"
+COL_ALGARVE <- "#D6604D"
+
+MESES_ORDER <- c("January","February","March","April","May","June",
+                 "July","August","September","October","November","December")
+MESES_LABEL <- c("Ene","Feb","Mar","Abr","May","Jun",
+                 "Jul","Ago","Sep","Oct","Nov","Dic")
+
+x$arrival_date_month <- factor(x$arrival_date_month, levels = MESES_ORDER)
+
+# Aseguramos que is_canceled es numérico
+x$is_canceled <- as.integer(as.character(x$is_canceled))
+```
+
+## Función reutilizable: calcular índice estacional
+
+```{r funcion_indice}
+calcular_indice <- function(datos, titulo_subtitulo) {
+
+  hotel_cols <- c("City Hotel" = COL_LISBOA, "Resort Hotel" = COL_ALGARVE)
+  hotel_labs <- c("City Hotel" = "Lisboa",   "Resort Hotel" = "Algarve")
+
+  # --- Índice estacional ---
+  df_reservas <- datos %>%
+    count(hotel, arrival_date_month, arrival_date_year) %>%
+    group_by(hotel, arrival_date_month) %>%
+    summarise(reservas_media = mean(n), .groups = "drop")
+
+  media_anual <- df_reservas %>%
+    group_by(hotel) %>%
+    summarise(media_global = mean(reservas_media), .groups = "drop")
+
+  df_indice <- df_reservas %>%
+    left_join(media_anual, by = "hotel") %>%
+    mutate(
+      indice  = (reservas_media / media_global - 1) * 100,
+      mes_num = as.integer(arrival_date_month)
+    )
+
+  # --- Temperatura ---
+  df_temp <- datos %>%
+    group_by(hotel, arrival_date_month) %>%
+    summarise(temp_media = mean(temp_media, na.rm = TRUE), .groups = "drop") %>%
+    mutate(mes_num = as.integer(arrival_date_month))
+
+  # --- Escala temperatura → índice ---
+  temp_min <- min(df_temp$temp_media, na.rm = TRUE)
+  temp_max <- max(df_temp$temp_media, na.rm = TRUE)
+  idx_min  <- min(df_indice$indice)
+  idx_max  <- max(df_indice$indice)
+
+  temp_a_idx <- function(t) idx_min + (t - temp_min) / (temp_max - temp_min) * (idx_max - idx_min)
+  idx_a_temp <- function(i) temp_min + (i - idx_min) / (idx_max - idx_min) * (temp_max - temp_min)
+
+  # --- Gráfico ---
+  ggplot() +
+    geom_hline(yintercept = 0, linetype = "dotted", color = "grey60", linewidth = 0.7) +
+
+    geom_ribbon(
+      data = df_indice,
+      aes(x = mes_num, ymin = 0, ymax = indice, fill = hotel),
+      alpha = 0.15
+    ) +
+    geom_line(
+      data = df_indice,
+      aes(x = mes_num, y = indice, color = hotel),
+      linewidth = 1.3
+    ) +
+    geom_point(
+      data = df_indice,
+      aes(x = mes_num, y = indice, color = hotel),
+      size = 3
+    ) +
+    # Etiquetas del valor en cada punto del Algarve (para comparar fácil)
+    geom_text(
+      data = df_indice %>% filter(hotel == "Resort Hotel"),
+      aes(x = mes_num, y = indice,
+          label = paste0(ifelse(indice > 0, "+", ""), round(indice, 0), "%")),
+      vjust = -1.1, size = 3, color = COL_ALGARVE, fontface = "bold"
+    ) +
+    geom_line(
+      data = df_temp,
+      aes(x = mes_num, y = temp_a_idx(temp_media), color = hotel),
+      linetype = "dashed", linewidth = 1.0, alpha = 0.75
+    ) +
+    geom_point(
+      data = df_temp,
+      aes(x = mes_num, y = temp_a_idx(temp_media), color = hotel),
+      shape = 17, size = 2.8, alpha = 0.75
+    ) +
+    scale_y_continuous(
+      name = "Desviación respecto a la media anual (%)",
+      labels = function(x) paste0(ifelse(x >= 0, "+", ""), round(x), "%"),
+      sec.axis = sec_axis(
+        transform = ~ idx_a_temp(.),
+        name   = "Temperatura media (°C)",
+        labels = function(x) paste0(round(x, 0), "°C"),
+        breaks = seq(10, 26, by = 4)
+      )
+    ) +
+    scale_x_continuous(breaks = 1:12, labels = MESES_LABEL) +
+    scale_color_manual(values = hotel_cols, labels = hotel_labs, name = NULL) +
+    scale_fill_manual(values  = hotel_cols, labels = hotel_labs, guide = "none") +
+    annotate("segment", x=9.3, xend=9.8, y=idx_max*1, yend=idx_max*1,
+             color="grey30", linewidth=1.0) +
+    annotate("text", x=9.95, y=idx_max*1,
+             label="Reservas", hjust=0, size=3.1, color="grey30") +
+    annotate("segment", x=9.3, xend=9.8, y=idx_max*0.85, yend=idx_max*0.85,
+             color="grey30", linetype="dashed", linewidth=1.0) +
+    annotate("text", x=9.95, y=idx_max*0.85,
+             label="Temperatura", hjust=0, size=3.1, color="grey30") +
+    labs(
+      subtitle = titulo_subtitulo,
+      x = NULL,
+      caption = "Fuente: Hotel Booking Demand Dataset + IPMA (Lisboa-Geofísico y Faro-Aeropuerto)"
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(
+      plot.subtitle    = element_text(color = "grey35", size = 11, face = "bold"),
+      legend.position  = "top",
+      panel.grid.minor = element_blank(),
+      plot.caption     = element_text(color = "grey55", size = 8)
+    )
+}
+```
+
+## Comparación: todas las reservas vs. solo confirmadas
+
+```{r comparacion, fig.height = 12}
+library(patchwork)  # para poner los dos gráficos uno encima del otro
+
+# Gráfico A: todas las reservas (incluye canceladas)
+g_todas <- calcular_indice(
+  datos               = x,
+  titulo_subtitulo    = "A) Todas las reservas (incluidas cancelaciones)"
+)
+
+# Gráfico B: solo reservas que se materializaron (is_canceled == 0)
+g_confirmadas <- calcular_indice(
+  datos               = x %>% filter(is_canceled == 0),
+  titulo_subtitulo    = "B) Solo reservas confirmadas (sin cancelaciones)"
+)
+
+# Combinar con patchwork
+(g_todas / g_confirmadas) +
+  plot_annotation(
+    title   = "El verano del Algarve es una ilusión: los que realmente van, eligen octubre",
+    caption = "Si el pico persiste en B), el patrón es real. Si se modera o desplaza, era efecto de cancelaciones de verano.",
+    theme   = theme(
+      plot.title   = element_text(face = "bold", size = 15),
+      plot.caption = element_text(color = "grey40", size = 10, face = "italic")
+    )
+  )
+```
+
+---
+
+## Tabla comparativa: índice Algarve por mes
+
+```{r tabla_comparacion}
+# Calcular índices por separado para tabular
+calcular_solo_indice <- function(datos) {
+  datos %>%
+    count(hotel, arrival_date_month, arrival_date_year) %>%
+    group_by(hotel, arrival_date_month) %>%
+    summarise(reservas_media = mean(n), .groups = "drop") %>%
+    group_by(hotel) %>%
+    mutate(
+      media_global = mean(reservas_media),
+      indice       = round((reservas_media / media_global - 1) * 100, 1)
+    ) %>%
+    ungroup()
+}
+
+idx_todas       <- calcular_solo_indice(x)
+idx_confirmadas <- calcular_solo_indice(x %>% filter(is_canceled == 0))
+
+# Tabla solo Algarve
+comparacion <- idx_todas %>%
+  filter(hotel == "Resort Hotel") %>%
+  select(arrival_date_month, indice_todas = indice) %>%
+  left_join(
+    idx_confirmadas %>%
+      filter(hotel == "Resort Hotel") %>%
+      select(arrival_date_month, indice_confirmadas = indice),
+    by = "arrival_date_month"
+  ) %>%
+  mutate(
+    diferencia = indice_confirmadas - indice_todas,
+    mes        = MESES_LABEL[as.integer(arrival_date_month)]
+  ) %>%
+  select(mes, indice_todas, indice_confirmadas, diferencia)
+
+knitr::kable(
+  comparacion,
+  col.names = c("Mes", "Índice (todas)", "Índice (confirmadas)", "Diferencia"),
+  digits    = 1,
+  align     = "lrrr",
+  caption   = "Algarve (Resort Hotel): índice estacional con y sin cancelaciones"
+)
+```
+
+**Interpretación de la tabla:**
+- Si `diferencia` es **negativa** en verano → las cancelaciones inflaban artificialmente esos meses.
+- Si `diferencia` es **positiva** en otoño → octubre era subestimado (pocas cancelaciones en ese mes).
+- Si los índices son similares en ambas columnas → el patrón es completamente real.
+
+
+
+## Visualización 3 — ¿Qué tipo de viaje hacen según la época?
+
+**Pregunta:** ¿Cambia el perfil del viajero con las estaciones?
+**Gráfico:** Barras apiladas al 100% por mes y hotel
+
+```{r viz3_tipo_visita, fig.height=8}
+
+# Orden y paleta para los tipos de visita
+TIPO_ORDER <- c("Trabajo", "Fin de semana", "Trabajo + descanso",
+                "Paquete vacacional", "Vacaciones")
+
+TIPO_COLS <- c(
+  "Trabajo"             = "#4393C3",
+  "Fin de semana"       = "#92C5DE",
+  "Trabajo + descanso"  = "#F4A582",
+  "Paquete vacacional"  = "#D6604D",
+  "Vacaciones"          = "#B2182B"
+)
+
+df_v3 <- x %>%
+  filter(!is.na(tipo)) %>%
+  mutate(tipo = factor(tipo, levels = TIPO_ORDER)) %>%
+  count(hotel, arrival_date_month, tipo) %>%
+  group_by(hotel, arrival_date_month) %>%
+  mutate(porcentaje = n / sum(n) * 100) %>%
+  ungroup() %>%
+  mutate(
+    mes_num = as.integer(arrival_date_month),
+    hotel_label = ifelse(hotel == "City Hotel",
+                         "Lisboa (City Hotel)",
+                         "Algarve (Resort Hotel)")
+  )
+
+ggplot(df_v3, aes(x = arrival_date_month, y = porcentaje, fill = tipo)) +
+  geom_col(width = 0.85, position = "stack") +
+  facet_wrap(~ hotel_label, ncol = 1) +
+  scale_fill_manual(values = TIPO_COLS, name = "Tipo de visita") +
+  scale_x_discrete(labels = MESES_LABEL) +
+  scale_y_continuous(labels = function(x) paste0(x, "%")) +
+  labs(
+    title    = "El perfil del viajero cambia radicalmente con las estaciones",
+    subtitle = "Composición del tipo de visita por mes y hotel",
+    x        = NULL,
+    y        = "% de reservas",
+    caption  = "Fuente: Hotel Booking Demand Dataset (António et al., 2019)"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 15),
+    plot.subtitle    = element_text(color = "grey40", size = 11),
+    strip.text       = element_text(face = "bold", size = 12),
+    legend.position  = "right",
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank(),
+    plot.caption     = element_text(color = "grey55", size = 9)
+  )
+```
+
+**Lectura clave:** En verano dominan las vacaciones puras y los paquetes. En invierno y otoño, el viajero de trabajo toma el relevo — especialmente en Lisboa.
+
+---
+
+## Visualización 4 — ¿Cuánto pagan y se arrepienten más en verano?
+
+**Pregunta:** ¿El calor encarece los precios y aumenta las cancelaciones?
+**Gráfico:** Boxplot de ADR por mes + línea de tasa de cancelación
+
+```{r viz4_precio_cancelacion, fig.height=9}
+
+# Tasa de cancelación mensual por hotel
+df_cancel <- x %>%
+  mutate(is_canceled = as.integer(as.character(is_canceled))) %>%
+  group_by(hotel, arrival_date_month) %>%
+  summarise(
+    tasa_cancel = mean(is_canceled, na.rm = TRUE) * 100,
+    mes_num     = as.integer(first(arrival_date_month)),
+    .groups     = "drop"
+  )
+
+# Escala para superponer cancelación sobre el boxplot
+adr_max <- quantile(x$adr, 0.95, na.rm = TRUE)  # cap en percentil 95
+
+escala_cancel <- adr_max / 100   # 100% cancelación → techo del boxplot
+
+df_box <- x %>%
+  mutate(hotel_label = ifelse(hotel == "City Hotel",
+                              "Lisboa (City Hotel)",
+                              "Algarve (Resort Hotel)"))
+
+df_cancel <- df_cancel %>%
+  mutate(hotel_label = ifelse(hotel == "City Hotel",
+                              "Lisboa (City Hotel)",
+                              "Algarve (Resort Hotel)"))
+
+ggplot() +
+  # Boxplot ADR (sin outliers extremos para mejor lectura)
+  geom_boxplot(
+    data    = df_box,
+    aes(x   = arrival_date_month, y = adr, fill = hotel),
+    outlier.shape = NA,
+    coef    = 1.5,
+    alpha   = 0.6,
+    width   = 0.7
+  ) +
+  # Línea de tasa de cancelación (segundo eje)
+  geom_line(
+    data = df_cancel,
+    aes(x = arrival_date_month, y = tasa_cancel * escala_cancel,
+        color = hotel, group = hotel),
+    linewidth = 1.2
+  ) +
+  geom_point(
+    data = df_cancel,
+    aes(x = arrival_date_month, y = tasa_cancel * escala_cancel,
+        color = hotel),
+    size = 3
+  ) +
+  facet_wrap(~ hotel_label, ncol = 1) +
+  scale_y_continuous(
+    name     = "Precio medio por noche (ADR, €)",
+    limits   = c(0, adr_max * 1.05),
+    labels   = function(x) paste0(round(x), "€"),
+    sec.axis = sec_axis(
+      transform = ~ . / escala_cancel,
+      name      = "Tasa de cancelación (%)",
+      labels    = function(x) paste0(round(x, 0), "%")
+    )
+  ) +
+  scale_x_discrete(labels = MESES_LABEL) +
+  scale_fill_manual(
+    values = c("City Hotel" = COL_LISBOA, "Resort Hotel" = COL_ALGARVE),
+    guide  = "none"
+  ) +
+  scale_color_manual(
+    values = c("City Hotel" = COL_LISBOA, "Resort Hotel" = COL_ALGARVE),
+    labels = c("City Hotel" = "Lisboa", "Resort Hotel" = "Algarve"),
+    name   = "Cancelación (línea)"
+  ) +
+  labs(
+    title    = "El verano encarece los precios, pero ¿también las cancelaciones?",
+    subtitle = "Distribución del precio por noche (cajas) y tasa de cancelación (línea) por mes",
+    x        = NULL,
+    caption  = "Fuente: Hotel Booking Demand Dataset (António et al., 2019)\nBoxplot sin outliers extremos (> percentil 95)"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 15),
+    plot.subtitle    = element_text(color = "grey40", size = 11),
+    strip.text       = element_text(face = "bold", size = 12),
+    legend.position  = "top",
+    panel.grid.minor = element_blank(),
+    plot.caption     = element_text(color = "grey55", size = 9)
+  )
+```
+
+**Lectura clave:** El Algarve dispara sus precios en verano y los hunde en invierno. La tasa de cancelación de Lisboa es estructuralmente más alta todo el año — especialmente preocupante porque sus precios son más estables.
+
+---
+
+## Resumen narrativo: la historia completa
+
+```{r resumen_stats, echo=FALSE}
+cat("=== CIFRAS CLAVE PARA EL STORYTELLING ===\n\n")
+
+# Viz 1: país más orientado a cada hotel
+x %>%
+  filter(!is.na(country) & country != "NULL") %>%
+  count(country, hotel) %>%
+  group_by(country) %>%
+  mutate(pct = n / sum(n) * 100) %>%
+  filter(hotel == "Resort Hotel") %>%
+  arrange(desc(pct)) %>%
+  head(3) %>%
+  { cat("Top 3 países más orientados al Algarve:\n"); print(.) }
+
+cat("\n")
+
+# Viz 2: diferencia estacional
+x %>%
+  mutate(mes_num = as.integer(arrival_date_month)) %>%
+  group_by(hotel, temporada = ifelse(mes_num %in% 6:9, "Verano", "Resto")) %>%
+  summarise(reservas = n(), .groups = "drop") %>%
+  group_by(hotel) %>%
+  mutate(pct = reservas / sum(reservas) * 100) %>%
+  { cat("% reservas en verano (jun-sep) vs resto:\n"); print(.) }
+
+cat("\n")
+
+# Viz 4: precio medio verano vs invierno
+x %>%
+  mutate(mes_num = as.integer(arrival_date_month),
+         temporada = ifelse(mes_num %in% 6:9, "Verano", "Invierno (dic-feb)")) %>%
+  filter(mes_num %in% c(6:9, 12, 1, 2)) %>%
+  group_by(hotel, temporada) %>%
+  summarise(adr_medio = round(mean(adr, na.rm = TRUE), 1), .groups = "drop") %>%
+  { cat("Precio medio (ADR) verano vs invierno:\n"); print(.) }
+```

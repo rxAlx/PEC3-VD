@@ -1,0 +1,4 @@
+"0","# require(ggplot2)"
+"0","ggplot(data=x, aes(x=adr, fill=hotel)) + "
+"0","  geom_histogram(bins=50, colour=""black"") +"
+"0","  theme_light()"
